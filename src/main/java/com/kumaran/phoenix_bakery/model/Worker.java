@@ -21,6 +21,8 @@ public class Worker {
 
     private Boolean active = true;
 
+    private Boolean loginRequired = true;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -92,6 +94,14 @@ public class Worker {
 
     public void setActive(Boolean active) {
         this.active = active;
+    }
+
+    public Boolean getLoginRequired() {
+        return loginRequired;
+    }
+
+    public void setLoginRequired(Boolean loginRequired) {
+        this.loginRequired = loginRequired;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -17,11 +17,25 @@ public class WorkerServiceImpl implements WorkerService {
     @Override
     public Worker login(String workerId, String pin) {
 
-        return workerRepository
+        Worker worker = workerRepository
 
-                .findByWorkerIdAndPinAndActiveTrue(workerId, pin)
+                .findByWorkerIdAndActiveTrue(workerId)
 
                 .orElse(null);
+
+        if (worker == null) {
+            return null;
+        }
+
+        if (Boolean.FALSE.equals(worker.getLoginRequired())) {
+            return worker;
+        }
+
+        if (pin == null || !pin.equals(worker.getPin())) {
+            return null;
+        }
+
+        return worker;
 
     }
 
@@ -35,6 +49,8 @@ public class WorkerServiceImpl implements WorkerService {
     @Override
     public Worker saveWorker(Worker worker) {
 
+        normalizeLoginFields(worker);
+
         return workerRepository.save(worker);
 
     }
@@ -44,8 +60,20 @@ public class WorkerServiceImpl implements WorkerService {
 
         worker.setWorkerId(workerId);
 
+        normalizeLoginFields(worker);
+
         return workerRepository.save(worker);
 
+    }
+
+    private void normalizeLoginFields(Worker worker) {
+        if (worker.getLoginRequired() == null) {
+            worker.setLoginRequired(true);
+        }
+
+        if (Boolean.FALSE.equals(worker.getLoginRequired())) {
+            worker.setPin(null);
+        }
     }
 
     @Override

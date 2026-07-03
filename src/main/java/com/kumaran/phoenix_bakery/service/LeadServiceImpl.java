@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.util.StringUtils;
-
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.kumaran.phoenix_bakery.dto.LeadRequest;
 import com.kumaran.phoenix_bakery.dto.LeadResponse;
@@ -61,16 +63,16 @@ public class LeadServiceImpl implements LeadService {
     @Override
     public List<LeadResponse> getFilteredLeads(String company, String leadType, String worker, String date, String search) {
         LocalDate parsedDate = date == null || date.isBlank() ? null : LocalDate.parse(date);
-        String normalizedSearch = search == null ? "" : search.trim().toLowerCase();
+        String normalizedSearch = search == null || search.isBlank() ? null : search.trim().toLowerCase();
+        String companyFilter = company == null || company.isBlank() ? null : company;
+        String leadTypeFilter = leadType == null || leadType.isBlank() ? null : leadType;
+        String workerFilter = worker == null || worker.isBlank() ? null : worker;
 
-        return repository.findAll().stream()
-                .filter(lead -> matchesSearch(lead, normalizedSearch))
-                .filter(lead -> matchesExactFilter(lead.getCompany(), company))
-                .filter(lead -> matchesExactFilter(lead.getLeadType(), leadType))
-                .filter(lead -> matchesWorkerFilter(lead, worker))
-                .filter(lead -> parsedDate == null || (lead.getCreatedAt() != null && lead.getCreatedAt().toLocalDate().equals(parsedDate)))
-                .sorted(Comparator.comparing(Lead::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-                .limit(200)
+        Pageable pageable = PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        List<Lead> leads = repository.findLeads(companyFilter, leadTypeFilter, workerFilter, parsedDate, parsedDate, normalizedSearch, pageable);
+
+        return leads.stream()
                 .map(mapper::toResponse)
                 .collect(Collectors.toList());
     }
@@ -139,26 +141,26 @@ public class LeadServiceImpl implements LeadService {
         LocalDate weekStart = today.minusDays(6);
         LocalDate monthStart = today.withDayOfMonth(1);
 
-        List<Lead> allLeads = repository.findAll();
-        long todayLeads = allLeads.stream().filter(lead -> lead.getCreatedAt() != null && !lead.getCreatedAt().toLocalDate().isBefore(today)).count();
-        long weeklyLeads = allLeads.stream().filter(lead -> lead.getCreatedAt() != null && !lead.getCreatedAt().toLocalDate().isBefore(weekStart)).count();
-        long monthlyLeads = allLeads.stream().filter(lead -> lead.getCreatedAt() != null && !lead.getCreatedAt().toLocalDate().isBefore(monthStart)).count();
+        long todayLeads = repository.countByCreatedAtAfter(today.atStartOfDay());
+        long weeklyLeads = repository.countByCreatedAtAfter(weekStart.atStartOfDay());
+        long monthlyLeads = repository.countByCreatedAtAfter(monthStart.atStartOfDay());
+        long totalLeads = repository.count();
 
-        Map<String, Long> companyStats = new LinkedHashMap<>();
-        Map<String, Long> leadTypeStats = new LinkedHashMap<>();
-        Map<String, Long> workerStats = new LinkedHashMap<>();
+        Map<String, Long> companyStats = repository.countLeadsByCompany().stream()
+                .collect(Collectors.toMap(e -> (String) e.get("name"), e -> (Long) e.get("count"), (v1, v2) -> v1, LinkedHashMap::new));
 
-        allLeads.forEach(lead -> {
-            companyStats.merge(lead.getCompany() == null || lead.getCompany().isBlank() ? "Unknown" : lead.getCompany(), 1L, Long::sum);
-            leadTypeStats.merge(lead.getLeadType() == null || lead.getLeadType().isBlank() ? "Unknown" : lead.getLeadType(), 1L, Long::sum);
-            workerStats.merge(lead.getWorkerName() == null || lead.getWorkerName().isBlank() ? (lead.getWorkerId() == null ? "Unknown" : lead.getWorkerId()) : lead.getWorkerName(), 1L, Long::sum);
-        });
+        Map<String, Long> leadTypeStats = repository.countLeadsByLeadType().stream()
+                .collect(Collectors.toMap(e -> (String) e.get("name"), e -> (Long) e.get("count"), (v1, v2) -> v1, LinkedHashMap::new));
+
+        Map<String, Long> workerStats = repository.countLeadsByWorker().stream()
+                .collect(Collectors.toMap(e -> (String) e.get("name"), e -> (Long) e.get("count"), (v1, v2) -> v1, LinkedHashMap::new));
+
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("todayLeads", todayLeads);
         summary.put("weeklyLeads", weeklyLeads);
         summary.put("monthlyLeads", monthlyLeads);
-        summary.put("totalLeads", allLeads.size());
+        summary.put("totalLeads", totalLeads);
         summary.put("companyStats", companyStats);
         summary.put("leadTypeStats", leadTypeStats);
         summary.put("workerStats", workerStats);

@@ -23,7 +23,6 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/leads")
-@CrossOrigin(origins = "*")
 public class LeadController {
 
     private final LeadService leadService;

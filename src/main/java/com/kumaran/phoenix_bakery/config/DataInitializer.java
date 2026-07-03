@@ -19,29 +19,29 @@ public class DataInitializer {
                                WorkerRepository workerRepository,
                                SettingsRepository settingsRepository) {
         return args -> {
-            if (adminRepository.findByUsername("PHXBE01") == null) {
-                Admin admin = new Admin();
-                admin.setAdminId("ADMIN001");
+            Admin admin = adminRepository.findByUsername("PHXBE01");
+            if (admin == null) {
+                admin = new Admin();
                 admin.setUsername("PHXBE01");
-                admin.setPassword("Phoenix@222");
-                admin.setName("DEEPANA");
-                admin.setRole("SUPER_ADMIN");
-                admin.setStatus("Active");
-                admin.setMobile("9600910222");
-                admin.setEmail("admin@phoenixbakeryequipments.in");
-                adminRepository.save(admin);
             }
+            admin.setAdminId("ADMIN001");
+            admin.setPassword("Phoenix@222");
+            admin.setName("DEEPANA");
+            admin.setRole("SUPER_ADMIN");
+            admin.setStatus("Active");
+            admin.setMobile("9600910222");
+            admin.setEmail("admin@phoenixbakeryequipments.in");
+            adminRepository.save(admin);
 
-            if (workerRepository.findByWorkerIdAndPinAndActiveTrue("PHX001", "5879").isEmpty()) {
-                Worker worker = new Worker();
-                worker.setWorkerId("PHX001");
-                worker.setName("Kumaran");
-                worker.setMobile("8838772761");
-                worker.setPin("5879");
-                worker.setTarget(50);
-                worker.setActive(true);
-                workerRepository.save(worker);
-            }
+            Worker worker = workerRepository.findById("PHX001").orElseGet(Worker::new);
+            worker.setWorkerId("PHX001");
+            worker.setName("Kumaran");
+            worker.setMobile("8838772761");
+            worker.setPin("5879");
+            worker.setTarget(50);
+            worker.setActive(true);
+            worker.setLoginRequired(true);
+            workerRepository.save(worker);
 
             if (settingsRepository.findByKeyName("app.name").isEmpty()) {
                 Settings appName = new Settings();
